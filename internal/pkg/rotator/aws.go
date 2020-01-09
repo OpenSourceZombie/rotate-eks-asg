@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
@@ -129,4 +130,71 @@ func TerminateInstanceByID(client *ec2.EC2, id string) error {
 	}
 	log.Printf("Instance '%s' succesfully terminated.", id)
 	return nil
+}
+
+func deleteAutoScalingGroupTags(client *autoscaling.AutoScaling, name string) error {
+	input := &autoscaling.DeleteTagsInput{
+		Tags: []*autoscaling.Tag{
+			{
+				Key:          aws.String("k8s.io/cluster-autoscaler/enabled"),
+				ResourceId:   aws.String(name),
+				ResourceType: aws.String("auto-scaling-group"),
+			},
+		},
+	}
+
+	_, err := client.DeleteTags(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case autoscaling.ErrCodeResourceContentionFault:
+				fmt.Println(autoscaling.ErrCodeResourceContentionFault, aerr.Error())
+			case autoscaling.ErrCodeResourceInUseFault:
+				fmt.Println(autoscaling.ErrCodeResourceInUseFault, aerr.Error())
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+		return nil
+	}
+	return nil
+}
+
+func addAutoScalingGroupTags(client *autoscaling.AutoScaling, name string) error {
+	input := &autoscaling.CreateOrUpdateTagsInput{
+		Tags: []*autoscaling.Tag{
+			{
+				Key:               aws.String("k8s.io/cluster-autoscaler/enabled"),
+				PropagateAtLaunch: aws.Bool(false),
+				ResourceId:        aws.String(name),
+				ResourceType:      aws.String("auto-scaling-group"),
+				Value:             aws.String("true"),
+			},
+		},
+	}
+
+	_, err := client.CreateOrUpdateTags(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case autoscaling.ErrCodeLimitExceededFault:
+				fmt.Println(autoscaling.ErrCodeLimitExceededFault, aerr.Error())
+			case autoscaling.ErrCodeAlreadyExistsFault:
+				fmt.Println(autoscaling.ErrCodeAlreadyExistsFault, aerr.Error())
+			case autoscaling.ErrCodeResourceContentionFault:
+				fmt.Println(autoscaling.ErrCodeResourceContentionFault, aerr.Error())
+			case autoscaling.ErrCodeResourceInUseFault:
+				fmt.Println(autoscaling.ErrCodeResourceInUseFault, aerr.Error())
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+		return nil
+	}
+	return nil
+
 }
