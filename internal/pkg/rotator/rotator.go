@@ -27,7 +27,9 @@ func Rotate(ctx context.Context, groupId string) error {
 	}
 	asgClient := autoscaling.New(sess)
 	ec2Client := ec2.New(sess)
+
 	group, err := DescribeAutoScalingGroup(asgClient, groupId)
+	deleteAutoScalingGroupTags(asgClient, groupId)
 	if err != nil {
 		return err
 	}
@@ -43,6 +45,7 @@ func Rotate(ctx context.Context, groupId string) error {
 			return err
 		}
 	}
+	addAutoScalingGroupTags(asgClient, groupId)
 	return nil
 }
 
